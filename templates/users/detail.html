@@ -2,7 +2,10 @@
 
 {% block content %}
 
-<div id="warbler-hero" class="full-width"></div>
+<div id="warbler-hero" class="full-width">
+  <!-- Fixed cover image for user profile here..image may be too wide?  -->
+  <img class="full-width" src="{{ user.header_image_url }}" alt="Header Image for {{ user.username }}" >
+</div>
 <img src="{{ user.image_url }}" alt="Image for {{ user.username }}" id="profile-avatar">
 <div class="row full-width">
   <div class="container">
@@ -54,12 +57,12 @@
     </div>
   </div>
 </div>
-
+<!-- corrected user location and bio below  -->
 <div class="row">
   <div class="col-sm-3">
     <h4 id="sidebar-username">@{{ user.username }}</h4>
-    <p>BIO HERE</p>
-    <p class="user-location"><span class="fa fa-map-marker"></span>LOCATION HERE</p>
+    <p>{{user.bio}}</p>
+    <p class="user-location"><span class="fa fa-map-marker"></span> {{user.location}}</p>
   </div>
 
   {% block user_details %}
