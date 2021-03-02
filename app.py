@@ -315,11 +315,17 @@ def homepage():
 
     - anon users: no messages
     - logged in: 100 most recent messages of followed_users
+    - fixing this was tough but I found it. 
     """
-
+    # Let me know if there is more efficient way here but pleased with result
     if g.user:
+        user = g.user
+        follows = [user.id]
+        for follow in user.following:
+            follows.append(follow.id)
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(follows))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
@@ -329,13 +335,14 @@ def homepage():
     else:
         return render_template('home-anon.html')
 
-
+# (Message.user_id == user.id) and
 ##############################################################################
 # Turn off all caching in Flask
 #   (useful for dev; in production, this kind of stuff is typically
 #   handled elsewhere)
 #
 # https://stackoverflow.com/questions/34066804/disabling-caching-in-flask
+
 
 @app.after_request
 def add_header(req):
