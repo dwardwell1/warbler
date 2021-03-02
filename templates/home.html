@@ -51,11 +51,17 @@
               <span class="text-muted">{{ msg.timestamp.strftime('%d %B %Y') }}</span>
               <p>{{ msg.text }}</p>
             </div>
+            {% if msg.id in likes   %}
+            <form method="POST" action="/users/remove_like/{{ msg.id }}" id="messages-form">
+            {% else %}
             <form method="POST" action="/users/add_like/{{ msg.id }}" id="messages-form">
+              {% endif %}
               <button class="
                 btn 
                 btn-sm 
-                {{'btn-primary' if msg.id in likes else 'btn-secondary'}}"
+                <!-- added logic to prevent user from liking own tweets  -->
+                {{'btn-primary' if msg.id in likes else 'btn-secondary'}}
+                {{'hide' if msg.user.id == g.user.id}}"
               >
                 <i class="fa fa-thumbs-up"></i> 
               </button>

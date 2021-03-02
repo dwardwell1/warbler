@@ -7,7 +7,7 @@ from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
 from forms import UserAddForm, LoginForm, MessageForm, EditUserForm
-from models import db, connect_db, User, Message
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -29,7 +29,7 @@ connect_db(app)
 
 ##############################################################################
 # User signup/login/logout
-
+# Why do we use g.user instead of just session?
 
 @app.before_request
 def add_user_to_g():
@@ -150,6 +150,7 @@ def users_show(user_id):
 
     # snagging messages in order from the database;
     # user.messages won't be in order by default
+    # added likes number
     messages = (Message
                 .query
                 .filter(Message.user_id == user_id)
@@ -195,7 +196,7 @@ def add_follow(follow_id):
     g.user.following.append(followed_user)
     db.session.commit()
 
-    return redirect(f"/users/{g.user.id}/following")
+    return redirect(f"/users/{follow_id}/following")
 
 
 @app.route('/users/stop-following/<int:follow_id>', methods=['POST'])
@@ -255,9 +256,65 @@ def delete_user():
 
     return redirect("/signup")
 
+##############################################################################
+# Likes Logic routes:
 
+
+@app.route('/users/add_like/<int:like_id>', methods=["POST"])
+def like_logic(like_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    message_id = Message.query.get_or_404(like_id)
+    user_id = g.user.id
+    new_like = Likes(user_id=user_id, message_id=message_id.id)
+
+    db.session.add(new_like)
+    db.session.commit()
+    return redirect('/')
+
+
+@app.route('/users/remove_like/<int:like_id>', methods=["POST"])
+def remove_like(like_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    message = Message.query.get_or_404(like_id)
+    user_id = g.user.id
+
+    like = Likes.query.filter_by(user_id=user_id, message_id=message.id).one()
+
+    db.session.delete(like)
+    db.session.commit()
+    return redirect('/')
+
+
+@app.route('/users/<int:user_id>/likes')
+def show_likes(user_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+    user = User.query.get_or_404(user_id)
+
+    # snagging messages in order from the database;
+    # user.messages won't be in order by default
+    # added likes number
+    likes = []
+    for like in user.likes:
+        likes.append(like.id)
+    messages = (Message
+                .query
+                .filter(Message.id.in_(likes))
+                .order_by(Message.timestamp.desc())
+                .limit(100)
+                .all())
+
+    return render_template('users/likes.html', user=user, messages=messages)
 ##############################################################################
 # Messages routes:
+
 
 @app.route('/messages/new', methods=["GET", "POST"])
 def messages_add():
@@ -321,6 +378,7 @@ def homepage():
     if g.user:
         user = g.user
         follows = [user.id]
+
         for follow in user.following:
             follows.append(follow.id)
         messages = (Message
@@ -329,13 +387,16 @@ def homepage():
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
+        likes = []
+        for like in user.likes:
+            likes.append(like.id)
 
-        return render_template('home.html', messages=messages)
+        return render_template('home.html', messages=messages, likes=likes)
 
     else:
         return render_template('home-anon.html')
 
-# (Message.user_id == user.id) and
+
 ##############################################################################
 # Turn off all caching in Flask
 #   (useful for dev; in production, this kind of stuff is typically

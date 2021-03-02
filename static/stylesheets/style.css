@@ -205,7 +205,8 @@ nav + .container {
 }
 
 .full-width {
-  height: 360px;
+  /* had to add height here to fix cover image  */
+  height: 360px;  
   width: 100vw;
   margin: 0 -50vw;
   position: relative;
@@ -541,4 +542,10 @@ p.card-bio {
 
 .message-404 .form-inline input {
   flex: 1;
+}
+
+
+/* ============================= need this to hide likes on user */
+.hide {
+  visibility: hidden;
 }
