@@ -4,7 +4,8 @@
 #
 #    FLASK_ENV=production python -m unittest test_message_views.py
 
-
+from flask import session
+from app import app, CURR_USER_KEY
 import os
 from unittest import TestCase
 
@@ -20,7 +21,6 @@ os.environ['DATABASE_URL'] = "postgresql:///warbler-test"
 
 # Now we can import app
 
-from app import app, CURR_USER_KEY
 
 # Create our tables (we do this here, so we only create the tables
 # once for all tests --- in each test, we'll delete the data
@@ -52,7 +52,7 @@ class MessageViewTestCase(TestCase):
         db.session.commit()
 
     def test_add_message(self):
-        """Can use add a message?"""
+        """Can user add a message?"""
 
         # Since we need to change the session to mimic logging in,
         # we need to use the changing-session trick:
@@ -71,3 +71,50 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+
+    def test_see_message(self):
+        """ Can we see message on homepage and userpage """
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            make_mess = c.post("/messages/new", data={"text": "Hello"})
+            resp = c.get('/')
+            resp2 = c.get(f'/users/{self.testuser.id}')
+            html = resp.get_data(as_text=True)
+            html2 = resp2.get_data(as_text=True)
+            msg = Message.query.one()
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(msg.text, html)
+            self.assertIn(msg.text, html2)
+
+    def test_auth_follower(self):
+        """ When you’re logged in, can you see the follower / following pages for any user?  """
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.get(f'/users/{self.testuser.id}/followers')
+            self.assertEqual(resp.status_code, 200)
+
+    def test_auth_follower_fail(self):
+        """ When you’re logged out, are you disallowed from visiting a user’s follower / following pages? """
+        with self.client as c:
+            resp = c.get(f'/users/{self.testuser.id}/followers')
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 302)
+            self.assertIn('Redirecting', html)
+
+    """ Can't get the below one to work, testing permission as logged in but posting as someone else """
+
+    # def test_auth_post_message(self):
+    #     """ When you’re logged in, are you prohibiting from adding a message as another user? """
+    #     with self.client as c:
+    #         with c.session_transaction() as sess:
+    #             sess[CURR_USER_KEY] = self.testuser.id
+    #         resp = c.post("/messages/new",
+    #                       data={"text": "Hello ducker", "user_id": "5"})
+
+    #         self.assertEqual(resp.status_code, 302)
+    #         msg = Message.query.one()
+    #         self.assertEqual(msg.text, "Hello ducker")
